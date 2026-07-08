@@ -1,77 +1,102 @@
 # Django Site
 
-Докеризированный сайт на Django для экспериментов с Kubernetes.
+## Запуск
 
-Внутри контейнера Django приложение запускается с помощью Nginx Unit, не путать с Nginx. Сервер Nginx Unit выполняет сразу две функции: как веб-сервер он раздаёт файлы статики и медиа, а в роли сервера-приложений он запускает Python и Django. Таким образом Nginx Unit заменяет собой связку из двух сервисов Nginx и Gunicorn/uWSGI. [Подробнее про Nginx Unit](https://unit.nginx.org/).
+Вам понадобится установленный Docker, minikube, kubectl.
 
-## Как подготовить окружение к локальной разработке
+Запустите кластер minikube, используя нужную виртуальную машину:
 
-Код в репозитории полностью докеризирован, поэтому для запуска приложения вам понадобится Docker. Инструкции по его установке ищите на официальных сайтах:
-
-- [Get Started with Docker](https://www.docker.com/get-started/)
-
-Вместе со свежей версией Docker к вам на компьютер автоматически будет установлен Docker Compose. Дальнейшие инструкции будут его активно использовать.
-
-## Как запустить сайт для локальной разработки
-
-Запустите базу данных и сайт:
-
-```shell
-$ docker compose up
+```
+minikube start
 ```
 
-В новом терминале, не выключая сайт, запустите несколько команд:
+Включите ingress контроллер:
 
-```shell
-$ docker compose run --rm web ./manage.py migrate  # создаём/обновляем таблицы в БД
-$ docker compose run --rm web ./manage.py createsuperuser  # создаём в БД учётку суперпользователя
+```
+minikube addons enable ingress
 ```
 
-Готово. Сайт будет доступен по адресу [http://127.0.0.1:8080](http://127.0.0.1:8080). Вход в админку находится по адресу [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/).
+Загрузите собранный вами образ вашего django-проекта в кластер:
 
-## Как вести разработку
-
-Все файлы с кодом django смонтированы внутрь докер-контейнера, чтобы Nginx Unit сразу видел изменения в коде и не требовал постоянно пересборки докер-образа -- достаточно перезапустить сервисы Docker Compose.
-
-### Как обновить приложение из основного репозитория
-
-Чтобы обновить приложение до последней версии подтяните код из центрального окружения и пересоберите докер-образы:
-
-``` shell
-$ git pull
-$ docker compose build
+```
+minikube image load "Имя_образа"
 ```
 
-После обновлении кода из репозитория стоит также обновить и схему БД. Вместе с коммитом могли прилететь новые миграции схемы БД, и без них код не запустится.
+Если установить базу данных с помощью helm не удается, cкачайте образ postgres 15 локально и загрузите в кластер minikube образ базы данных:
 
-Чтобы не гадать заведётся код или нет — запускайте при каждом обновлении команду `migrate`. Если найдутся свежие миграции, то команда их применит:
-
-```shell
-$ docker compose run --rm web ./manage.py migrate
-…
-Running migrations:
-  No migrations to apply.
+```
+minikube image load postgres:15
 ```
 
-### Как добавить библиотеку в зависимости
+Перейдите в директорию `kubernetes`
 
-В качестве менеджера пакетов для образа с Django используется pip с файлом requirements.txt. Для установки новой библиотеки достаточно прописать её в файл requirements.txt и запустить сборку докер-образа:
+Создайте файл `django-secret.yaml` и задайте в нем следующие значения, используя секцию `stringData`:
 
-```sh
-$ docker compose build web
+- secret-key: секретный ключ сайта.
+- database-url: "postgres://имя_пользователя:пароль@postgres-service:5432/mydb"
+- django-debug: режим отладки.
+- django-allowed-hosts: домены и IP-адреса сайта.
+- postgres-user: имя пользователя базы данных.
+- postgres-password: пароль пользователя базы данных.
+
+Задайте имя вашего образа с проектом в поле `image` в следующих файлах:
+- `django-deployment.yaml`
+- `django-clearsessions-cronjob.yaml`
+- `django-migrate-job.yaml`
+
+Создайте секреты кластера:
+
+```
+kubectl apply -f django-secret.yaml
 ```
 
-Аналогичным образом можно удалять библиотеки из зависимостей.
+Запустите базу данных:
 
-<a name="env-variables"></a>
-## Переменные окружения
+```
+kubectl apply -f postgres-k8s.yaml
+```
 
-Образ с Django считывает настройки из переменных окружения:
+Запустите миграции внутри базы данных:
 
-`SECRET_KEY` -- обязательная секретная настройка Django. Это соль для генерации хэшей. Значение может быть любым, важно лишь, чтобы оно никому не было известно. [Документация Django](https://docs.djangoproject.com/en/3.2/ref/settings/#secret-key).
+```
+kubectl apply -f django-migrate-job.yaml
+```
 
-`DEBUG` -- настройка Django для включения отладочного режима. Принимает значения `TRUE` или `FALSE`. [Документация Django](https://docs.djangoproject.com/en/3.2/ref/settings/#std:setting-DEBUG).
+Запустите django и его сервис:
 
-`ALLOWED_HOSTS` -- настройка Django со списком разрешённых адресов. Если запрос прилетит на другой адрес, то сайт ответит ошибкой 400. Можно перечислить несколько адресов через запятую, например `127.0.0.1,192.168.0.1,site.test`. [Документация Django](https://docs.djangoproject.com/en/3.2/ref/settings/#allowed-hosts).
+```
+kubectl apply -f django-deployment.yaml
+```
+```
+kubectl apply -f django-service.yaml
+```
 
-`DATABASE_URL` -- адрес для подключения к базе данных PostgreSQL. Другие СУБД сайт не поддерживает. [Формат записи](https://github.com/jacobian/dj-database-url#url-schema).
+Запустите планировщик очистки сессий:
+
+```
+kubectl apply -f django-clearsessions-cronjob.yaml
+```
+
+Включите маршрутизацию для внешних запросов:
+
+```
+kubectl apply -f django-ingress.yaml
+```
+
+Включите сетевой туннель:
+
+```
+minikube tunnel
+```
+
+В файле C:\Windows\System32\drivers\etc\hosts в самом низу допишите следующую строку:
+
+```
+127.0.0.1 star-burger.test
+```
+
+Ваш сайт будет доступен по адресу [http://star-burger.test/]
+
+## Цели проекта
+
+Код написан в учебных целях — для курса по Python и веб-разработке на сайте [Devman](https://dvmn.org).
