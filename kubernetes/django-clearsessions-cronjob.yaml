@@ -6,10 +6,12 @@ metadata:
 spec:
   schedule: "0 0 1 * *"
   concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
   jobTemplate:
     spec:
+      ttlSecondsAfterFinished: 60
       template:
         spec:
           restartPolicy: Never
