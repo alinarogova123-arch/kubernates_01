@@ -31,3 +31,13 @@ spec:
             secretKeyRef:
               name: django-secrets
               key: database-url
+        - name: DEBUG
+          valueFrom:
+            secretKeyRef:
+              name: django-secrets
+              key: django-debug
+        - name: ALLOWED_HOSTS
+          valueFrom:
+            secretKeyRef:
+              name: django-secrets
+              key: django-allowed-hosts
