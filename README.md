@@ -101,7 +101,7 @@ minikube tunnel
 
 ### 1. Создайте secret файл с сертификатом для доступа к базе данных:
 
-Используйте Lens, зайдите в config -> secrets, нажмите кнопку создания нового secrets, задайте значения в окнах SECRET NAME и NAMESPACE, нажмите create, отредактируйте файл - добавьте в него секцию `stringData`, задайте для ключа `root.crt` многострочный текст вашего сертификата:
+Используйте Lens, зайдите в `config -> secrets`, нажмите кнопку создания нового secrets, задайте значения в окнах `SECRET NAME` и `NAMESPACE`, нажмите `create`, отредактируйте файл - добавьте в него секцию `stringData`, задайте для ключа `root.crt` многострочный текст вашего сертификата:
 ```
 type: Opaque
 stringData:
@@ -127,6 +127,47 @@ docker build -t your_docker_login/django-site:your_hash .
 ```
 docker push your_docker_login/django-site:your_hash
 ```
+
+### 3. Запустите деплой.
+
+Задайте в файле `django-deploy.yaml` имя образа `image:` и нужный вам тег, переменные окружения.
+
+Запустите команду:
+```
+kubectl apply -f deploy/yc-sirius/edu-roman-belozerov/django-deploy.yaml
+```
+
+### 4. Запустите миграции и создайте суперпользователя.
+
+Откройте `shell` созданного деплоем пода и выполните следующие команды:
+```
+python manage.py migrate
+python manage.py createsuperuser
+```
+
+### 5. Настройте конфиг-файлы.
+
+В Lens откройте `Config -> Config Maps`, отредактируйте `main-nginx-config` - поместите следующие конфигурации в `location` секции `nginx.conf:`
+```
+location / {
+    proxy_pass http://django-service;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme; 
+}
+```
+Перезапустите деплой `main-nginx`.
+
+### Переменные окружения.
+* `DATABASE_URL` — строка подключения к PostgreSQL формата `postgres://user:password@host:port/db_name`.
+* `SECRET_KEY` — секретный ключ Django-приложения.
+* `DEBUG` — режим отладки (`True` для dev, `False` для production).
+* `ALLOWED_HOSTS` — список разрешенных хостов через запятую (например, `*` или домен кластера).
+
+Для production режима создайте secret и задайте переменные, в файле `django-deploy.yaml` укажите созданный вами secret как источник для перменных.
+
+Логи ошибок можно смотреть в `Workloads -> Pods`, в строке пода вашего сайта нажать на три точки и выбрать `Logs`
 
 ## Цели проекта
 
