@@ -1,6 +1,6 @@
 # Django Site
 
-## Запуск
+## Запуск локально через minikube
 
 Вам понадобится установленный Docker, minikube, kubectl.
 
@@ -96,6 +96,21 @@ minikube tunnel
 ```
 
 Ваш сайт будет доступен по адресу [http://star-burger.test/]
+
+## Как подготовить dev окружение.
+
+### 1. Создайте secret файл с сертификатом для доступа к базе данных:
+
+Используйте Lens, зайдите в config -> secrets, нажмите кнопку создания нового secrets, задайте значения в окнах SECRET NAME и NAMESPACE, нажмите create, отредактируйте файл - добавьте в него секцию `stringData`, задайте для ключа `root.crt` многострочный текст вашего сертификата:
+
+```
+type: Opaque
+stringData:
+  root.crt: |
+    -----BEGIN CERTIFICATE-----
+    ...
+    -----END CERTIFICATE-----
+```
 
 ## Цели проекта
 
