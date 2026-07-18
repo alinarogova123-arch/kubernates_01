@@ -169,6 +169,9 @@ location / {
 
 Логи ошибок можно смотреть в `Workloads -> Pods`, в строке пода вашего сайта нажать на три точки и выбрать `Logs`
 
+Ссылка на рабочую версию сайта https://edu-roman-belozerov.yc-sirius-dev.pelid.team/
+Ссылка на описание выделенных ресурсов облачной инфраструктуры https://storage.yandexcloud.net/sirius-env-registry/edu-roman-belozerov.html
+
 ## Цели проекта
 
 Код написан в учебных целях — для курса по Python и веб-разработке на сайте [Devman](https://dvmn.org).
