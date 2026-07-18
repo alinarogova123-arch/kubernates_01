@@ -102,7 +102,6 @@ minikube tunnel
 ### 1. Создайте secret файл с сертификатом для доступа к базе данных:
 
 Используйте Lens, зайдите в config -> secrets, нажмите кнопку создания нового secrets, задайте значения в окнах SECRET NAME и NAMESPACE, нажмите create, отредактируйте файл - добавьте в него секцию `stringData`, задайте для ключа `root.crt` многострочный текст вашего сертификата:
-
 ```
 type: Opaque
 stringData:
@@ -110,6 +109,23 @@ stringData:
     -----BEGIN CERTIFICATE-----
     ...
     -----END CERTIFICATE-----
+```
+
+### 2. Соберите и опубликуйте docker-образ.
+
+Узнайте хеш последнего коммита:
+```
+git rev-parse --short HEAD
+```
+
+Соберите образ:
+```
+docker build -t your_docker_login/django-site:your_hash .
+```
+
+Загрузите ваш образ на docker hub:
+```
+docker push your_docker_login/django-site:your_hash
 ```
 
 ## Цели проекта
